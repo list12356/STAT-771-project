@@ -36,8 +36,8 @@ class SyntheticDataLoader(DataLoader):
     def __init__(self, batch_size, mode="smooth"):
         super().__init__()
         self.batch_size = batch_size
-        self.mu = np.random.uniform(-50, 50, [10, 100])
-        self.sigma = np.random.uniform(1, 3, [10])
+        self.mu = np.random.uniform(-50, 50, [10, 10])
+        self.sigma = np.random.uniform(1, 10, [10])
 
     def next_batch(self, batch_size=None):
         if batch_size == None:

@@ -38,13 +38,33 @@ class Generator:
                 print("Incompatiable mode!")
                 exit()
 
-    def build_synthetic(self):
+class SyntheticGenerator:
+    def __init__(self, Z_dim, data_dim, pac_num, mode):
+        self.pac_num = pac_num
+        self.mode = mode
+        
+        self.G_W1 = tf.Variable(xavier_init([Z_dim, 256]))
+        self.G_b1 = tf.Variable(tf.zeros(shape=[256]))
+
+        self.G_W2 = tf.Variable(xavier_init([256, 512]))
+        self.G_b2 = tf.Variable(tf.zeros(shape=[512]))
+
+        self.G_W3 = tf.Variable(xavier_init([512, data_dim]))
+        self.G_b3 = tf.Variable(tf.zeros(shape=[data_dim]))
+
+        self.Z = []
+        for i in range(self.pac_num):
+            self.Z.append(tf.placeholder(tf.float32, shape=[None, Z_dim]))
+
+        self.theta_G = [self.G_W1, self.G_W2, self.G_W3, self.G_b1, self.G_b2, self.G_b3]
+    
+    def build(self):
         self.G_sample = []
         for i in range(self.pac_num):
             G_h1 = tf.nn.relu(tf.matmul(self.Z[i], self.G_W1) + self.G_b1)
-            G_prob = tf.matmul(G_h1, self.G_W2) + self.G_b2
+            G_h2 =  tf.nn.relu(tf.matmul(G_h1, self.G_W2) + self.G_b2)
+            G_prob = tf.matmul(G_h2, self.G_W3) + self.G_b3
             self.G_sample.append(G_prob)
-
 
     def update(self):
         return

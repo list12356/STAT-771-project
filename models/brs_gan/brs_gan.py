@@ -11,6 +11,7 @@ from utils.utils import sample_Z
 from utils.utils import plot_mnist
 from utils.utils import plot_synthetic
 from models.brs_gan.generator import Generator
+from models.brs_gan.generator import SyntheticGenerator
 from models.brs_gan.generator import DCGenerator
 from models.brs_gan.discriminator import Discriminator
 from models.brs_gan.discriminator import DCDiscriminator
@@ -39,31 +40,28 @@ class BRSGAN:
             self.data_dim = 784
         elif self.dataset == "synthetic":
             self.dataloader = SyntheticDataLoader(self.batch_size)
-            self.data_dim = 100
+            self.data_dim = 10
         self.pac_num = pac_num
         self.sigma = sigma
         self.gan_structure = gan_structure
 
         # build the generator G, and a random searcher S
-        if gan_structure == "vanila":
+        if self.dataset == "synthetic":
+            self.G = SyntheticGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
+        elif gan_structure == "vanila":
             self.G = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
             self.G = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
-
-        if gan_structure == "vanila":
+        
+        if self.dataset == "synthetic":
+            self.S = SyntheticGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
+        elif gan_structure == "vanila":
             self.S = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
             self.S = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
         
-        if self.dataset == "mnist":
-            self.G.build()
-            self.S.build()
-        elif self.dataset == "synthetic":
-            self.G.build_synthetic()
-            self.S.build_synthetic()
-        else:
-            print("unsupported!")
-            exit()
+        self.G.build()
+        self.S.build()
 
         self.G_sample = self.G.G_sample
         self.S_sample = self.S.G_sample
@@ -116,17 +114,17 @@ class BRSGAN:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver()
             
-        out_file = open(self.out_dir + "/values.txt", "a+")
-        eval_file = open(self.out_dir + "/evaluation.txt", "a+")
+        out_file = open(self.out_dir + "/values.txt", "w+")
+        eval_file = open(self.out_dir + "/evaluation.txt", "w+")
         
         if self.dataset == "synthetic":
             eval_file.write("mu:\n" + str(self.dataloader.mu) + "\nsigma:" + str(self.dataloader.sigma) + '\n')
             sample, label = self.dataloader.next_batch(1000)
-            fig = plot_synthetic(sample, label)
-            plt.savefig(self.out_dir + 'dataset.png', bbox_inches='tight')
+            fig = plot_synthetic(sample, label, "simple")
+            plt.savefig(self.out_dir + '/dataset.png', bbox_inches='tight')
             plt.close(fig)
             fig = plot_synthetic(sample, label, "tsne")
-            plt.savefig(self.out_dir + 'dataset_tsne.png', bbox_inches='tight')
+            plt.savefig(self.out_dir + '/dataset_tsne.png', bbox_inches='tight')
             plt.close(fig)
         
         for it in range(1000000):
