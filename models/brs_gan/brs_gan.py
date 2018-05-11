@@ -13,7 +13,7 @@ from models.brs_gan.generator import DCGenerator
 from models.brs_gan.discriminator import Discriminator
 from models.brs_gan.discriminator import DCDiscriminator
 from models.brs_gan.dataloader import MNISTDataLoader
-
+from models.brs_gan.dataloader import SyntheticDataloader
 
 
 class BRSGAN:
@@ -21,7 +21,6 @@ class BRSGAN:
                 sigma = 0, mode = "binary", pac_num = 5, gan_structure="vanila", dataset="mnist"):
         self.out_dir = out_dir
         self.save_step = 100
-        self.data_dim = 784
         self.Z_dim = 100
         self.search_num = 64
         self.alpha = alpha
@@ -35,21 +34,25 @@ class BRSGAN:
         self.batch_size = 128
         if self.dataset == "mnist":
             self.dataloader = MNISTDataLoader(self.batch_size, self.mode)
+            self.data_dim = 784
+        elif self.dataset == "synthetic":
+            self.dataloader = SyntheticDataLoader(self.batch_size)
+            self.data_dim = 100
         self.pac_num = pac_num
         self.sigma = sigma
         self.gan_structure = gan_structure
 
         # build the generator G, and a random searcher S
         if gan_structure == "vanila":
-            self.G = Generator(self.Z_dim,self.data_dim, self.pac_num, self.mode)
+            self.G = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
-            self.G = DCGenerator(self.Z_dim,self.data_dim, self.pac_num, self.mode, self.batch_size)
+            self.G = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
         self.G_sample = self.G.G_sample
 
         if gan_structure == "vanila":
-            self.S = Generator(self.Z_dim,self.data_dim, self.pac_num, self.mode)
+            self.S = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
-            self.S = DCGenerator(self.Z_dim,self.data_dim, self.pac_num, self.mode, self.batch_size)
+            self.S = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
         self.S_sample = self.S.G_sample
 
         # placeholder for discriminator
@@ -73,7 +76,7 @@ class BRSGAN:
         self.D_solver = tf.train.AdamOptimizer().minimize(self.D_loss, var_list=self.D.theta_D)
 
         # define the train operator and the update operator for random search
-        if self.mode == "gradient":
+        if self.mode == "gradient" or self.dataset == "synthetic":
             self.G_solver = tf.train.AdamOptimizer().minimize(-self.G_loss, var_list=self.G.theta_G)
         else:
             self.update_Sp = []
@@ -100,14 +103,20 @@ class BRSGAN:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver()
             
-        out_file = open(self.out_dir+"/values.txt", "a+")
-
+        out_file = open(self.out_dir + "/values.txt", "a+")
+        eval_file = open(self.out_dir + "/evaluation.txt", "a+")
+        
+        if self.dataset == "synthetic":
+           eval_file.write("mu:\n" + self.dataloader.mu + "\nsigma:" + self.dataloader.sigma) 
         for it in range(1000000):
             if it % self.save_step == 0:
                 samples = sess.run(self.G_sample[0], feed_dict={self.G.Z[0]: sample_Z(128, self.Z_dim)})
                 if self.dataset == "mnist":
                     samples = samples[:16]
                     fig = plot_mnist(samples)
+                elif self.dataset == "synthetic":
+                    print("evaluating gmm") 
+
                 
                 plt.savefig(self.out_dir + '/{}.png'.format(str(img_num).zfill(5)), bbox_inches='tight')
                 plt.close(fig)

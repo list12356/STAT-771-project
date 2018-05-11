@@ -10,7 +10,7 @@ class DataLoader:
 
 class MNISTDataLoader(DataLoader):
     def __init__(self, batch_size, mode="smooth"):
-        super.init()
+        super().__init__()
         self.batch_size = batch_size
         self.mode = mode
         self.mnist = input_data.read_data_sets('./data/MNIST_data', one_hot=True)
@@ -30,25 +30,18 @@ class MNISTDataLoader(DataLoader):
         else:
             print("Incompatiable mode!")
             exit()
+        return X_t
 
 class SyntheticDataLoader(DataLoader):
     def __init__(self, batch_size, mode="smooth"):
         super.init()
         self.batch_size = batch_size
-        
+        self.mu = np.random.uniform(-50, 50, [100, 10])
+        self.sigma = np.random.uniform(0, 3, 10)
 
     def next_batch(self):
-        if self.mode == "smooth" or self.mode == "gradient":
-            X_t, _ = self.mnist.train.next_batch(self.batch_size)
-        elif self.mode == "binary":
-            X_t, _ = self.mnist.train.next_batch(self.batch_size)
-            X_t = (X_t > 0.5).astype(np.float32)
-        elif self.mode == "multilevel":
-            X_mb_s, _ = self.mnist.train.next_batch(self.batch_size)
-            X_t = np.zeros((self.batch_size, 784))
-            for j in range(1, 10):
-                X_t = X_t + (X_mb_s > j / 10.0).astype(float)
-            X_t = X_t / 10.0
-        else:
-            print("Incompatiable mode!")
-            exit()
+        X_t = []
+        c = np.random.randint(10, self.batch_size)
+        for i in range(self.batch_size):
+            X_t.append(np.random.normal(loc = mu[c[i]], scale=sigma[c[i]]))
+        return X_t
