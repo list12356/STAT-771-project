@@ -4,6 +4,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from sklearn.manifold import TSNE
+
+# # define the colormap
+# cmap = plt.cm.jet
+# # extract all colors from the .jet map
+# cmaplist = [cmap(i) for i in range(cmap.10)]
+# # create the new map
+# cmap = cmap.from_list('Custom cmap', cmaplist, cmap.10)
 
 def xavier_init(size):
     in_dim = size[0]
@@ -25,8 +33,17 @@ def plot_mnist(samples):
 
     return fig
 
-def plot_synthetic(samples):
-    return 
+def plot_synthetic(samples, label = None, mode="simple"):
+    fig = plt.figure(figsize=(4, 4))
+    if mode == "simple":
+        embeded = np.array(samples)
+    elif mode == "tsne":
+        embeded = TSNE().fit_transform(samples)
+    else:
+        print("unsupported plot mode")
+        exit()
+    plt.scatter(embeded[:,0], embeded[:,1], c = label, cmap='tab20c')
+    return fig
 
 def sample_Z(m, n):
     return np.random.uniform(-1., 1., size=[m, n])

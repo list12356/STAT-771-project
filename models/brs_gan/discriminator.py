@@ -4,10 +4,10 @@ from utils.ops import *
 
 class Discriminator:
     def __init__(self, pac_num, data_dim):
-        self.D_W1 = tf.Variable(xavier_init([data_dim * pac_num, 512]))
-        self.D_b1 = tf.Variable(tf.zeros(shape=[512]))
+        self.D_W1 = tf.Variable(xavier_init([data_dim * pac_num, 128]))
+        self.D_b1 = tf.Variable(tf.zeros(shape=[128]))
 
-        self.D_W2 = tf.Variable(xavier_init([512, 1]))
+        self.D_W2 = tf.Variable(xavier_init([128, 1]))
         self.D_b2 = tf.Variable(tf.zeros(shape=[1]))
 
         self.theta_D = [self.D_W1, self.D_W2, self.D_b1, self.D_b2]

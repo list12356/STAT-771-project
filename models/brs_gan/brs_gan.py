@@ -5,22 +5,24 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy import stats
+from sklearn.mixture import GaussianMixture
 
 from utils.utils import sample_Z
 from utils.utils import plot_mnist
+from utils.utils import plot_synthetic
 from models.brs_gan.generator import Generator
 from models.brs_gan.generator import DCGenerator
 from models.brs_gan.discriminator import Discriminator
 from models.brs_gan.discriminator import DCDiscriminator
 from models.brs_gan.dataloader import MNISTDataLoader
-from models.brs_gan.dataloader import SyntheticDataloader
+from models.brs_gan.dataloader import SyntheticDataLoader
 
 
 class BRSGAN:
     def __init__(self, out_dir = "out_brs_cpac", alpha=0.2, v=0.02, _lambda = 1.0, 
                 sigma = 0, mode = "binary", pac_num = 5, gan_structure="vanila", dataset="mnist"):
         self.out_dir = out_dir
-        self.save_step = 100
+        self.save_step = 1000
         self.Z_dim = 100
         self.search_num = 64
         self.alpha = alpha
@@ -47,12 +49,23 @@ class BRSGAN:
             self.G = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
             self.G = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
-        self.G_sample = self.G.G_sample
 
         if gan_structure == "vanila":
             self.S = Generator(self.Z_dim, self.data_dim, self.pac_num, self.mode)
         elif gan_structure == "dc":
             self.S = DCGenerator(self.Z_dim, self.data_dim, self.pac_num, self.mode, self.batch_size)
+        
+        if self.dataset == "mnist":
+            self.G.build()
+            self.S.build()
+        elif self.dataset == "synthetic":
+            self.G.build_synthetic()
+            self.S.build_synthetic()
+        else:
+            print("unsupported!")
+            exit()
+
+        self.G_sample = self.G.G_sample
         self.S_sample = self.S.G_sample
 
         # placeholder for discriminator
@@ -107,16 +120,41 @@ class BRSGAN:
         eval_file = open(self.out_dir + "/evaluation.txt", "a+")
         
         if self.dataset == "synthetic":
-           eval_file.write("mu:\n" + self.dataloader.mu + "\nsigma:" + self.dataloader.sigma) 
+            eval_file.write("mu:\n" + str(self.dataloader.mu) + "\nsigma:" + str(self.dataloader.sigma) + '\n')
+            sample, label = self.dataloader.next_batch(1000)
+            fig = plot_synthetic(sample, label)
+            plt.savefig(self.out_dir + 'dataset.png', bbox_inches='tight')
+            plt.close(fig)
+            fig = plot_synthetic(sample, label, "tsne")
+            plt.savefig(self.out_dir + 'dataset_tsne.png', bbox_inches='tight')
+            plt.close(fig)
+        
         for it in range(1000000):
             if it % self.save_step == 0:
-                samples = sess.run(self.G_sample[0], feed_dict={self.G.Z[0]: sample_Z(128, self.Z_dim)})
                 if self.dataset == "mnist":
+                    samples = sess.run(self.G_sample[0], feed_dict={self.G.Z[0]: sample_Z(128, self.Z_dim)})
                     samples = samples[:16]
                     fig = plot_mnist(samples)
                 elif self.dataset == "synthetic":
-                    print("evaluating gmm") 
-
+                    print("evaluating gmm")
+                    samples = sess.run(self.G_sample[0], feed_dict={self.G.Z[0]: sample_Z(512, self.Z_dim)})
+                    gmm = GaussianMixture(n_components=10,
+                        covariance_type="spherical", max_iter=20, random_state=0)
+                    try:
+                        gmm.fit(samples)
+                        err_mean = np.linalg.norm(gmm.means_ - self.dataloader.mu, ord=2)
+                        err_var = np.linalg.norm(gmm.covariances_ - self.dataloader.sigma, ord=2)
+                        print(gmm.means_[0])
+                        label = gmm.predict(samples)
+                        eval_file.write(str(err_mean) + '\t' + str(err_var) + '\n')
+                        eval_file.flush()
+                        fig = plot_synthetic(samples, label, "tsne")
+                        plt.savefig(self.out_dir + '/{}_tsne.png'.format(str(img_num).zfill(5)), bbox_inches='tight')
+                        plt.close(fig)
+                        fig = plot_synthetic(samples, label)
+                    except:
+                        # import pdb; pdb.set_trace()
+                        continue
                 
                 plt.savefig(self.out_dir + '/{}.png'.format(str(img_num).zfill(5)), bbox_inches='tight')
                 plt.close(fig)
@@ -125,7 +163,7 @@ class BRSGAN:
 
             X_mb = []
             for p in range(self.pac_num):
-                X_t = self.dataloader.next_batch()
+                X_t, _ = self.dataloader.next_batch()
                 if self.gan_structure == "dc":
                     X_t = np.reshape(X_t, [self.batch_size, 28, 28, 1])
                 X_mb.append(X_t)
@@ -188,13 +226,14 @@ class BRSGAN:
                 feed_G[self.X[p]] = X_mb[p]
             _, D_loss_curr = sess.run([self.D_solver, self.D_loss], feed_dict=feed_G)
 
-            if it % 100 == 0:
+            if it % self.save_step == 0:
                 print('Iter: {}'.format(it))
                 print('D loss: {:.4}'.format(D_loss_curr))
                 print('G_loss: {:.4}'.format(G_loss_curr))
                 print('Sigma_R: {:.4}'.format(sigma_R))
-                out_file.write('Iter: {}'.format(it)+":\n"
-                    + 'D loss: {:.4}'.format(D_loss_curr) + "\n"
-                    + 'G_loss: {:.4}'.format(G_loss_curr) + "\n"
-                    + 'Sigma_R: {:.4}'.format(sigma_R) + "\n")
-                print()
+                # out_file.write('Iter: {}'.format(it)+":\n"
+                #     + 'D loss: {:.4}'.format(D_loss_curr) + "\n"
+                #     + 'G_loss: {:.4}'.format(G_loss_curr) + "\n"
+                #     + 'Sigma_R: {:.4}'.format(sigma_R) + "\n")
+                out_file.write(str(G_loss_curr) + "\t" + str(D_loss_curr) + "\n")
+                out_file.flush()

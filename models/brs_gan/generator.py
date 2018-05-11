@@ -7,10 +7,10 @@ class Generator:
         self.pac_num = pac_num
         self.mode = mode
         
-        self.G_W1 = tf.Variable(xavier_init([Z_dim, 256]))
-        self.G_b1 = tf.Variable(tf.zeros(shape=[256]))
+        self.G_W1 = tf.Variable(xavier_init([Z_dim, 128]))
+        self.G_b1 = tf.Variable(tf.zeros(shape=[128]))
 
-        self.G_W2 = tf.Variable(xavier_init([256, data_dim]))
+        self.G_W2 = tf.Variable(xavier_init([128, data_dim]))
         self.G_b2 = tf.Variable(tf.zeros(shape=[data_dim]))
 
         self.Z = []
@@ -18,7 +18,6 @@ class Generator:
             self.Z.append(tf.placeholder(tf.float32, shape=[None, Z_dim]))
 
         self.theta_G = [self.G_W1, self.G_W2, self.G_b1, self.G_b2]
-        self.build()
     
     def build(self):
         self.G_sample = []
@@ -38,6 +37,14 @@ class Generator:
             else:
                 print("Incompatiable mode!")
                 exit()
+
+    def build_synthetic(self):
+        self.G_sample = []
+        for i in range(self.pac_num):
+            G_h1 = tf.nn.relu(tf.matmul(self.Z[i], self.G_W1) + self.G_b1)
+            G_prob = tf.matmul(G_h1, self.G_W2) + self.G_b2
+            self.G_sample.append(G_prob)
+
 
     def update(self):
         return
